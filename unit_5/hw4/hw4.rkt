@@ -36,3 +36,26 @@
                            (lambda () (f (+ x 1)))))]
            )
     (lambda () (f 1))))
+
+(define dan-then-dog
+  (letrec ([dan (lambda () (cons "dan.jpg" dog))]
+           [dog (lambda () (cons "dog.jpg" dan))])
+    dan))
+
+(define (stream-add-one s)
+  (lambda()
+    (let ([pr (s)])
+      (cons (cons 1 (car pr))
+            (stream-add-one (cdr pr))))
+    )
+  )
+
+(define (cycle-lists xs ys)
+  (letrec ([f (lambda (n)
+                (lambda()
+                  (let [(nx (list-nth-mod xs n))
+                        (ny (list-nth-mod ys n))]
+                    (cons (cons nx ny)
+                          (f (+ n 1))))))])
+    (f 0)))
+
