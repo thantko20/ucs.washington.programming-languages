@@ -59,3 +59,41 @@
                           (f (+ n 1))))))])
     (f 0)))
 
+(define (vector-assoc v vec)
+  (letrec ([helper
+            (lambda(pos)
+              (cond [(= pos (vector-length vec)) #f]
+                    [(not (pair? (vector-ref vec pos))) #f]
+                    [(equal? v (car (vector-ref vec pos))) (vector-ref vec pos)]
+                    [#t (helper (+ pos 1))]))])
+    (helper 0)))
+
+(define (caching-assoc xs n)
+  (letrec ([vec (make-vector n #f)]
+           [pos 0])
+    (lambda(v)
+      (let ([ans (vector-assoc v vec)])
+        (if ans ans
+            (let ([assoc-ans (assoc v xs)])
+              (if assoc-ans
+                  (
+                   begin
+                    (vector-set! vec pos assoc-ans)
+                    (set! pos (if (= pos (- n 1))
+                                  0
+                                  (+ pos 1)))
+                    assoc-ans
+                    )
+                  #f)))))))
+
+(define-syntax while-greater
+  (syntax-rules (do)
+    [(while-greater e1 do e2)
+     (letrec (
+              [n1 e1]
+              [f (
+                  lambda()
+                   (if (> e2 n1)
+                       (f)
+                       #t))])
+       (f))]))
