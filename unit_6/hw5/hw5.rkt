@@ -23,7 +23,16 @@
 
 ;; Problem 1
 
-;; CHANGE (put your solutions here)
+;; (a) Convert a Racket list to a mupl list
+(define (racketlist->mupllist rl)
+  (cond [(null? rl) (munit)]
+        [#t (apair (car rl) (racketlist->mupllist (cdr rl)))]))
+
+;; (b) Convert a mupl list to a Racket list
+(define (mupllist->racketlist ml)
+  (cond [(ismunit? ml) null]
+        [(apair? ml) (cons (apair-e1 ml) (mupllist->racketlist (apair-e2 ml)))]
+        [#t (error "mupllist->racketlist given a non-list mupl value")]))
 
 ;; Problem 2
 
@@ -49,7 +58,51 @@
                (int (+ (int-num v1)
                        (int-num v2)))
                (error "MUPL addition applied to non-number")))]
-        ;; CHANGE add more cases here
+        [(int? e) e]
+        [(munit? e) e]
+        [(isgreater? e)
+         (let ([v1 (eval-under-env (isgreater-e1 e) env)]
+               [v2 (eval-under-env (isgreater-e2 e) env)])
+           (if (and (int? v1)
+                    (int? v2))
+               (if (> (int-num v1) (int-num v2))
+                   (int 1) (int 0))
+               (int 0)))]
+        [(ifnz? e)
+         (let ([v1 (eval-under-env (ifnz-e1 e) env)])
+           (if (and (int? v1) (not (= (int-num v1) 0)))
+               (eval-under-env (ifnz-e2 e) env)
+               (eval-under-env (ifnz-e3 e) env)))]
+        [(fun? e) (closure env e)]
+        [(mlet? e)
+         (let ([v (eval-under-env (mlet-e e) env)])
+           (eval-under-env (mlet-body e) (cons (cons (mlet-var e) v) env)))]
+        [(call? e)
+         (let ([vf (eval-under-env (call-funexp e) env)]
+               [va (eval-under-env (call-actual e) env)])
+           (if (not (closure? vf))
+               (error "call is given non-function value")
+               (let ([f (closure-fun vf)]
+                     [fenv (closure-env vf)])
+                 (let* ([env-with-name
+                         (if (null? (fun-nameopt f))
+                             fenv
+                             (cons (cons (fun-nameopt f) vf) fenv))]
+                        [env-with-arg
+                         (cons (cons (fun-formal f) va) env-with-name)])
+                   (eval-under-env (fun-body f) env-with-arg)))))]
+        [(apair? e) (apair (eval-under-env (apair-e1 e) env) (eval-under-env (apair-e2 e) env))]
+        [(first? e)
+         (let ([v (eval-under-env (first-e e) env)])
+           (if (apair? v) (apair-e1 v)
+               (error "not a pair")))]
+        [(second? e)
+         (let ([v (eval-under-env (second-e e) env)])
+           (if (apair? v) (apair-e2 v)
+               (error "not a pair")))]
+        [(ismunit? e)
+         (let ([v (eval-under-env (ismunit-e e) env)])
+           (if (munit? v) (int 1) (int 0)))]
         [#t (error (format "bad MUPL expression: ~v" e))]))
 
 ;; Do NOT change
@@ -58,19 +111,43 @@
 
 ;; Problem 3
 
-(define (ifmunit e1 e2 e3) "CHANGE")
+(define (ifmunit e1 e2 e3) (ifnz (ismunit e1) e2 e3))
 
-(define (mlet* bs e2) "CHANGE")
+(define (mlet* bs e2)
+  (if (null? bs) e2
+      (let ([v (car bs)])
+        (mlet (car v) (cdr v) (mlet* (cdr bs) e2)))))
 
-(define (ifeq e1 e2 e3 e4) "CHANGE")
+(define (ifeq e1 e2 e3 e4)
+  (mlet "_x" e1
+        (mlet "_y" e2
+              (ifnz (isgreater (var "_x") (var "_y"))
+                    e4
+                    (ifnz (isgreater (var "_x") (var "_y"))
+                          e4
+                          e3))))
+  )
 
 ;; Problem 4
 
-(define mupl-filter "CHANGE")
+(define mupl-filter
+  (fun "filter" "f"
+       (fun "filter-helper" "lst"
+            (ifmunit (var "lst")
+                     (munit)
+                     (mlet "result" (call (var "f") (first (var "lst")))
+                           (ifnz (var "result")
+                                 (apair (first (var "lst"))
+                                        (call (var "filter-helper") (second (var "lst"))))
+                                 (call (var "filter-helper") (second (var "lst")))))))))
 
 (define mupl-all-gt
   (mlet "filter" mupl-filter
-        "CHANGE (notice filter is now in MUPL scope)"))
+        (fun "all-gt" "i"
+             (fun "all-gt-helper" "lst"
+                  (call (call (var "filter")
+                              (fun "is-greater-than-i" "el" (isgreater (var "el") (var "i")))
+                              ) (var "lst"))))))
 
 ;; Challenge Problem
 
